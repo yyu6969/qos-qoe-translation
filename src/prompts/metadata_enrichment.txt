@@ -1,4 +1,4 @@
-TASK
+## Task
 You will be given:
 1) A paper (Markdown, possibly with figures as images).
 2) A JSON list of extracted QoS–QoE relationships produced by relationship_extractor.
@@ -9,7 +9,7 @@ Your job is to create ONE enriched record per input relationship by adding paper
 You MUST output the same number of records as the number of relationship items provided.
 
 
-FIELDS TO OUTPUT (PER RECORD)
+## Fields to Output (Per Record)
 For each relationship item, output exactly these fields and no extra fields:
 - index
 - year
@@ -32,7 +32,7 @@ For each relationship item, output exactly these fields and no extra fields:
 - source
 
 
-OUTPUT FORMAT (STRICT JSON ONLY)
+## Output Format (Strict JSON Only)
 Return ONLY valid JSON as a TOP-LEVEL ARRAY with EXACTLY this structure (no extra keys, no markdown):
 [
   {
@@ -71,28 +71,28 @@ Return ONLY valid JSON as a TOP-LEVEL ARRAY with EXACTLY this structure (no extr
 - In history_log, all qos[*].value and qoe[*].value fields MUST always be JSON strings, even when they represent numeric values, integers, decimals, binary values, or categorical labels.
 
 
-YEAR + VENUE RULES (STRICT; NO FABRICATION)
+## Year + Venue Rules (Strict; No Fabrication)
 - year and venue are paper-level metadata and MUST be filled using the provided paper metadata (from CSV via paper_id).
 - Do NOT infer, estimate, or guess year/venue from the paper text if they are not explicitly provided in the metadata input.
 - If year is missing in the metadata input, output null for year.
 - If venue is missing in the metadata input, output an empty string "" for venue.
 
 
-GLOBAL CONSTRAINT (STRICT): NO FIGURE/TABLE/EQUATION NUMBERS ANYWHERE EXCEPT source
+## Global Constraint (Strict): No Figure/Table/Equation Numbers Anywhere Except source
 - In ALL keys except "source", you MUST NOT include any explicit identifiers like:
   "Figure 3", "Fig. 3c", "Table 2", "Eq. (4)", "Equation 1", or any similar number/letter index.
 - You MAY say generic phrases like "the figure shows..." or "the table shows..." (without any number/letter).
 - The ONLY place you may include the identifier is the "source" field.
 
 
-EVIDENCE RULES (STRICT)
+## Evidence Rules (Strict)
 
-0) ONE-TO-ONE MAPPING
+### 0) One-to-One Mapping
 - index MUST be the 0-based position of the relationship in the input relationships list.
 - If the input contains N relationship objects, output exactly N objects in the TOP-LEVEL ARRAY.
 - Keep the same order as the input relationships list.
 
-1) COPY RELATIONSHIP FIELDS EXACTLY (NO EDITS)
+### 1) Copy Relationship Fields Exactly (No Edits)
 For each output item, the following fields MUST be copied verbatim from the corresponding input relationship object (character-for-character):
 - data_type
 - qos_parameter
@@ -109,13 +109,13 @@ Do NOT change casing.
 Do NOT change whitespace.
 Just copy.
 
-1.1) PARAMETER/DEFINITION KEY MATCH (STRICT)
+### 1.1) Parameter/Definition Key Match (Strict)
 - qos_parameter is an array. qos_parameter_definition is a dict.
 - The keys of qos_parameter_definition MUST EXACTLY match the strings in qos_parameter (no missing, no extra).
 - qoe_parameter is an array. qoe_parameter_definition is a dict.
 - The keys of qoe_parameter_definition MUST EXACTLY match the strings in qoe_parameter (no missing, no extra).
 
-2) METADATA FIELDS MUST COME FROM THE PAPER + RELATIONSHIP RESULTS (NO FABRICATION)
+### 2) Metadata Fields Must Come from the Paper + Relationship Results (No Fabrication)
 You MAY synthesize missing metadata values (experiment settings, devices, network types, etc.) as long as the synthesis is plausibly consistent with:
 (A) the paper content (Markdown + figures/tables/equations + captions), AND
 (B) the provided relationships JSON from relationship_extractor (data_type/qos_parameter/qoe_parameter/relationship/description/source).
@@ -129,12 +129,12 @@ NOT ALLOWED:
 - inventing values that are not plausibly implied by the paper + relationship results.
 
 
-3) DEFINITIONS OF METADATA FIELDS (CONTROLLED SEMANTICS; BEST-EFFORT INFERENCE REQUIRED)
+### 3) Definitions of Metadata Fields (Controlled Semantics; Best-Effort Inference Required)
 
-A) domain
+#### A) domain
 - domain is FIXED: always output "video_streaming".
 
-B) protocol (CONTROLLED + LIST; STRICT)
+#### B) protocol (Controlled + List; Strict)
 - protocol MUST be a non-empty JSON array of strings.
 - If only one value applies, output a single-item list.
 - If multiple protocols are truly central/used, include multiple values (no duplicates).
@@ -153,7 +153,7 @@ Selection guidance (still within the allowed set):
 - WebRTC explicitly central -> include "WebRTC"
 - No network delivery / offline encoding / local playback -> include "Offline"
 
-C) network_type (CONTROLLED + LIST; STRICT)
+#### C) network_type (Controlled + List; Strict)
 - network_type MUST be a non-empty JSON array of strings.
 - If only one value applies, output a single-item list.
 - If multiple access types are actually used in evaluation, include multiple values (no duplicates).
@@ -168,7 +168,7 @@ Selection guidance:
 - If the paper indicates public Internet but not the last-mile access type, use "internet"
 - If there is no network path, use "offline"
 
-D) device_type (CONTROLLED + LIST; STRICT)
+#### D) device_type (Controlled + List; Strict)
 - device_type MUST be a non-empty JSON array of strings.
 - If only one value applies, output a single-item list.
 - If multiple device types are used for QoE playback/evaluation, include multiple values (no duplicates).
@@ -178,7 +178,7 @@ D) device_type (CONTROLLED + LIST; STRICT)
   "game_console", "set_top_box", "streaming_stick", "smart_display", "smartwatch"
 ]
 
-E) video_type (CONTROLLED + LIST; STRICT)
+#### E) video_type (Controlled + List; Strict)
 - video_type MUST be a non-empty JSON array of strings.
 - If only one value applies, output a single-item list.
 - If multiple video service types are truly evaluated, include multiple values (no duplicates).
@@ -195,7 +195,7 @@ Selection guidance:
 - Use "vr_vod"/"vr_live" for VR content
 - Use "immersive_vod"/"immersive_rich_media" if the paper clearly frames it as immersive rich media beyond standard 2D
 
-F) user_preference
+#### F) user_preference
 - Goal: summarize the user’s implied objective in one short snake_case phrase.
 - Choose based on what the paper optimizes/measures (from paper + relationship results):
   • "high_quality" if QoE emphasizes perceptual quality (e.g., VMAF/SSIM/PSNR as quality objective, or MOS on quality)
@@ -205,7 +205,7 @@ F) user_preference
   • "low_latency" if live/interactive latency is central
 - If multiple are equally central, choose the one most supported by the extracted relationships (qos_parameter/qoe_parameter/description).
 
-G) scenario (IMPORTANT: MUST BE A SINGLE STRING)
+#### G) scenario (IMPORTANT: MUST BE A SINGLE STRING)
 - Output 3–6 complete sentences describing the experimental/evaluation scenario.
 - Build it from paper + relationship results, including ONLY what is present or plausibly implied by them:
   • evaluation style: user study vs objective metric evaluation vs simulation/emulation
@@ -218,18 +218,18 @@ G) scenario (IMPORTANT: MUST BE A SINGLE STRING)
 - Use canonical metric names from qos_parameter/qoe_parameter in scenario, and mention “normalized/log/ratio” only if the evidence explicitly uses it.
 - Do NOT state or imply direction (no “QoS→QoE”, “QoE→QoS”, “impact of QoS on QoE”, “predict QoE”, “derive QoS”). Describe only the setup and what variables/metrics were measured/recorded.
 
-H) history_log (REQUIRED; FIXED KEYS; MUST FOLLOW THIS FORMAT)
+#### H) history_log (Required; Fixed Keys; Must Follow This Format)
 
 You MUST output a non-empty history_log for every record.
 
-FORMAT (STRICT)
+## Format (Strict)
 - history_log must be an array of 6–12 JSON objects.
 - Each object MUST contain exactly THREE keys (no extra keys):
   1) "time_s": numeric elapsed seconds from session start
   2) "qos": an array of { "metric": string, "value": string } pairs
   3) "qoe": an array of { "metric": string, "value": string } pairs
 
-KEY CONSISTENCY (STRICT)
+## Key Consistency (Strict)
 - For every history_log entry:
   - qos MUST contain exactly len(qos_parameter) pairs.
   - The set of qos[i].metric strings MUST EXACTLY match qos_parameter (no missing, no extra).
@@ -238,11 +238,11 @@ KEY CONSISTENCY (STRICT)
   - The set of qoe[i].metric strings MUST EXACTLY match qoe_parameter (no missing, no extra).
   - Each metric MUST appear exactly once (no duplicates).
 
-TIMESTAMP RULES (STRICT; PAPER-ANCHORED)
+## Timestamp Rules (Strict; Paper-Anchored)
 - history_log timestamps MUST be derived from the paper when possible.
 - ALL timestamps values must be non-round decimals.
 
-1) PAPER-ANCHORED TIMESTAMPS (HIGHEST PRIORITY)
+### 1) Paper-Anchored Timestamps (Highest Priority)
 - If the paper provides any timing structure, you MUST anchor time_s to it, such as:
   - segment duration (e.g., 2s/4s/6s segments)
   - per-second or per-interval logging granularity
@@ -253,7 +253,7 @@ TIMESTAMP RULES (STRICT; PAPER-ANCHORED)
   - choose 6-12 samples that align with the paper’s timing (e.g., segment boundaries or logged intervals)
   - keep slight variation only if the paper suggests non-uniform sampling; otherwise follow the paper’s cadence.
 
-2) NO TIME AXIS / NO TIMING CUES (FALLBACK; RELATIONSHIP-DEPENDENT DURATION)
+### 2) No Time Axis / No Timing Cues (Fallback; Relationship-Dependent Duration)
 If the paper provides no usable timing cues at all, you MUST still generate time_s values, but the total duration MUST be chosen to be consistent with the relationship evidence and the implied timescale of the metrics.
 
 Fallback timestamp generation rules:
@@ -261,20 +261,20 @@ Fallback timestamp generation rules:
 - Each subsequent time_s increases by 2–6 seconds with slight random variation (NOT perfectly uniform) IF the relationship implies short-timescale dynamics (per-segment / per-chunk / session-level streaming).
 - If the relationship implies long-timescale dynamics (multi-minute evaluation), you MUST use larger increments (still slightly non-uniform), and a longer total duration.
 
-DURATION + INCREMENT SELECTION (CHOOSE BASED ON RELATIONSHIP + METRIC NAMES)
+## Duration + Increment Selection (CHOOSE BASED ON RELATIONSHIP + METRIC NAMES)
 You must choose ONE of these templates:
 
-A) SHORT SESSION (typical ABR session / per-segment dynamics)
+### A) Short Session (typical ABR session / per-segment dynamics)
 - Use when qos_parameter/qoe_parameter are session-sensitive metrics such as throughput, bitrate, buffer_level, rebuffering, bitrate_switches, startup_delay, instantaneous quality/VMAF per segment.
 - Increments: 2–6 seconds (slightly non-uniform)
 - Total duration: 20–120 seconds
 
-B) MEDIUM SESSION (typical experiment run / several minutes)
+### B) Medium Session (typical experiment run / several minutes)
 - Use when metrics imply aggregation over longer windows but still within a single run, such as average bitrate over time, average QoE per interval, QoE tracking over a few minutes.
 - Increments: 10–45 seconds (slightly non-uniform)
 - Total duration: 120–600 seconds
 
-C) LONG SESSION (trace-based evaluation / long playback / long network trace)
+### C) Long Session (trace-based evaluation / long playback / long network trace)
 - Use when the paper context or relationship implies long traces or multi-minute playback (e.g., cellular trace experiments, long-run adaptation, QoE over long sessions).
 - Increments: 60–240 seconds (slightly non-uniform)
 - Total duration: 600–1800 seconds (10–30 minutes)
@@ -289,65 +289,65 @@ IMPORTANT
 - Do NOT invent a segment duration or session length if the paper explicitly gives a different one.
 - If the paper gives a clear interval (e.g., 4-second segments), the time increments should reflect that (e.g., 0, 4.1, 8.2, ... with small jitter only if justified).
 
-VALUE RULES (STRICT)
+## Value Rules (Strict)
 - All metric values in history_log MUST be strings.
 
-VALUE TYPE DERIVATION (REQUIRED; DEFINITION-FIRST)
+## Value Type Derivation (Required; Definition-First)
 For both qos and qoe, you MUST determine the value type before generating numbers, using this priority:
 
-1) Definition cues (highest priority)
+### 1) Definition Cues (Highest Priority)
 Read qos_parameter_definition / qoe_parameter_definition. If either explicitly indicates one of:
 - continuous (real-valued; has units like ms, s, kbps, Mbps, %, ratio; or described as “rate”, “time”, “delay”, “throughput”, “jitter”, “bitrate”, “bandwidth”, “buffer level”, etc.)
 - discrete/count (explicitly says “count”, “#”, “number of”, “occurrences”, “times”, “events”, “switches”, etc.)
 - binary/categorical/indicator (explicitly says “indicator”, “flag”, “yes/no”, “true/false”, “canceled”, “success/failure”, “on/off”, “category”, “class”, “state”, etc.)
 Then you MUST use that type.
 
-2) Relationship evidence cues (if definition is unclear)
+### 2) Relationship Evidence Cues (if definition is unclear)
 If the definition does not make the type clear, infer from the relationship excerpt:
 - If the excerpt shows values like 0/1 or words like yes/no -> treat as binary
 - If it shows integers only and labels imply counts -> treat as discrete/count
 - Otherwise treat as continuous
 
-3) Fallback default
+### 3) Fallback Default
 If both definition and relationship do not provide enough cues, default to continuous.
 
 - Semantic type inference determines the form of the value, but the final JSON serialization in history_log MUST always use strings.
 
-VALUE TYPE OUTPUT RULES (STRICT)
+## Value Type Output Rules (Strict)
 
-A) Continuous metrics
+### A) Continuous Metrics
 - Values MUST be decimal strings.
 - Do not use values ending with .0 unless directly seeded from evidence.
 - Avoid clean multiples of 5 or 10 unless seeded from paper.
 - Prefer 1–3 decimal places.
 
-B) Discrete / count metrics
+### B) Discrete / Count Metrics
 - Values MUST be integer strings.
 - Examples: "0", "1", "4", "12"
 
-C) Binary metrics
+### C) Binary Metrics
 - Values MUST be exactly the strings "0" or "1".
 - If mapping is explicitly stated in excerpt/definition (yes/no, true/false), use yes/true=1 and no/false=0.
 - If mapping is not stated, still use "0" / "1" without inventing meaning.
 
-D) Categorical / state metrics
+### D) Categorical / State Metrics
 - Values MUST be strings.
 - Preserve the category/state style implied by the paper or relationship evidence.
 - Do NOT invent unseen labels if the evidence supports only numeric forms.
 
-CONFLICT RESOLUTION (STRICT; DO NOT FABRICATION)
+## Conflict Resolution (Strict; Do Not Fabricate)
 - If the definition claims binary/discrete but the relationship excerpt clearly implies continuous (or vice versa), prefer the relationship excerpt as the semantic truth for history_log values, but serialize the final output as strings.
 - If you cannot reconcile, choose the most conservative value type (continuous unless clearly discrete/binary) and still output the record (do not skip).
 
-Relationship consistency
+## Relationship Consistency
 Values must be plausible for video streaming and consistent with the extracted relationship:
 - If QoS improvement should improve QoE, the two series should be loosely positively correlated with noise.
 - If QoS impairment should reduce QoE, the two series should be loosely negatively correlated with noise.
 - If the relationship is nonlinear or threshold-like, reflect that pattern approximately while preserving variability.
 
-EVIDENCE + SYNTHESIS POLICY (SEED-FIRST; THEN SIMULATE)
+## Evidence + Synthesis Policy (Seed-First; Then Simulate)
 
-1) SEED-FIRST RULE (REQUIRED PRIORITY)
+### 1) Seed-First Rule (Required Priority)
 - Before simulating, you MUST actively search for “seed” datapoints that can ground history_log.
 - You must search for seed datapoints in this priority order:
 (a) The provided relationship fields (especially when data_type is "table" or "equation"):
@@ -363,7 +363,7 @@ EVIDENCE + SYNTHESIS POLICY (SEED-FIRST; THEN SIMULATE)
     - Add plausible timestamps that follow the timestamp rules.
     - You may add additional simulated points around the seeds to reach 6–12 samples, but keep the overall trend consistent with the seeds.
 
-2) SIMULATION RULE (ONLY WHEN NO SEEDS EXIST)
+### 2) Simulation Rule (Only When No Seeds Exist)
 - If you cannot find any seed datapoints after the seed-first search, then simulate all 6-12 samples.
 - When simulating, you MUST base the dynamics on the extracted relationship evidence:
     - Use the relationship/description text to choose whether the series should be loosely positively correlated or loosely negatively correlated (do not use arrows or direction markers in output).
@@ -371,6 +371,6 @@ EVIDENCE + SYNTHESIS POLICY (SEED-FIRST; THEN SIMULATE)
     - Choose metric ranges that fit the metric names (qos_parameter and qoe_parameter) and the paper context.
     - The simulation must still follow the realism rules (non-round decimals, slight time variation, noisy fluctuation, plausible ranges).
 
-3) TRANSPARENCY IS NOT REQUIRED IN OUTPUT
+### 3) Transparency Is Not Required in Output
 - Do NOT add extra keys or notes about whether values were seeded or simulated.
 - Just produce the required history_log format.
