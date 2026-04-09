@@ -1,0 +1,196 @@
+## Task
+From the provided paper content, extract exactly these fields:
+- data_type
+- qos_parameter
+- qos_parameter_definition
+- qoe_parameter
+- qoe_parameter_definition
+- relationship
+- description
+
+## Output Format
+Return ONLY valid JSON with EXACTLY these keys (no extra keys, no markdown):
+{
+  "data_type": "equation|table|figure",
+  "qos_parameter": ["string", "..."],
+  "qos_parameter_definition": [
+    {"metric": "<qos_parameter_1>", "definition": "string"},
+    {"metric": "<qos_parameter_2>", "definition": "string"}
+  ],
+  "qoe_parameter": ["string", "..."],
+  "qoe_parameter_definition": [
+    {"metric": "<qoe_parameter_1>", "definition": "string"},
+    {"metric": "<qoe_parameter_2>", "definition": "string"}
+  ],
+  "relationship": "string",
+  "description": "string",
+  "source": "string"
+}
+
+## Definition Pair Consistency (Strict)
+- qos_parameter_definition MUST be an array of objects, each exactly:
+  {"metric": "<metric_name>", "definition": "<definition_string>"}.
+- The set of "metric" values in qos_parameter_definition MUST EXACTLY match qos_parameter:
+  - same spelling
+  - no missing
+  - no extra
+  - no duplicates
+- qoe_parameter_definition MUST follow the same rule vs qoe_parameter.
+- qos_parameter and qoe_parameter MUST NOT contain duplicate metric names.
+- All "metric" values MUST be canonical snake_case metric names (the same canonical names listed in qos_parameter/qoe_parameter).
+
+## Domain Filter (Strict)
+- video_streaming ONLY
+- Only output a record if the evidence (equation/table/figure + its surrounding text) is clearly from the video streaming / video viewing part of the paper (e.g., video dataset, video viewing, streaming/progressive download video session).
+
+## Global Constraint (Strict): No Figure/Table/Equation Numbers Anywhere Except source
+- In ALL keys except "source", you MUST NOT include any explicit identifiers like:
+  "Figure 3", "Fig. 3c", "Table 2", "Eq. (4)", "Equation 1", or any similar number/letter index.
+- You MAY say generic phrases like "the figure shows..." or "the table shows..." (without any number/letter).
+- The ONLY place you may include the identifier is the "source" field.
+
+## Evidence Rules (Strict)
+### 0) RECORD SELECTION (SKIP IF NO QoS–QoE LINKAGE EVIDENCE; BIDIRECTIONAL)
+- Only output a record if the excerpt contains explicit evidence of a relationship that links at least one QoS metric and at least one QoE metric, in either direction.
+- The linkage must be expressed as:
+  (a) Equation/model: the excerpt includes the actual equation text AND it functionally connects QoS and QoE (e.g., QoE = f(QoS) OR QoS = g(QoE)).
+  (b) Table: the excerpt includes the table content AND it provides paired QoS and QoE values, or reports one metric under different conditions of the other (i.e., QoS conditioned on QoE or QoE conditioned on QoS).
+  (c) Figure/plot: the excerpt (caption/axes/legend) identifies BOTH a QoS metric and a QoE metric AND the plot explicitly depicts their relationship (trend/curve/threshold/regions), regardless of which metric is on which axis.
+- MULTI-PARAMETER DEPENDENCIES → ONE RECORD (STRICT):
+  (a) If a single evidence item links one-to-many, many-to-one, or many-to-many QoS/QoE metrics,
+  (b) keep EVERYTHING in ONE record (do NOT split).
+  (c) Always use arrays for qos_parameter and qoe_parameter (even if length is 1) and always use definition arrays of {metric, definition} pairs (even if length is 1).
+- Co-occurrence is not enough: if QoS and QoE are merely mentioned without an explicit dependence or pairing, do NOT output a record.
+- If the excerpt contains an equation/table/figure but it does not link a QoS metric to a QoE metric, do NOT output a record.
+- If no qualifying QoS–QoE linkage evidence exists, SKIP the record.
+
+### 1) data_type:
+   - "equation": relationship MUST contain actual LaTeX/math formula from the paper.
+   - "table": relationship MUST contain the actual table content (Markdown/HTML/LaTeX).
+   - "figure": relationship MUST describe the figure's axes and trend.
+
+### 2) qos_parameter (MUST BE ONE OF THE LINKED VARIABLES AND MUST BE QoS)
+- Choose ONE OR MORE QoS metrics from the SAME evidence and output them as an array (length >= 1).
+- It must appear in the same evidence used for "relationship":
+  • Equation: the QoS term must appear in the equation that links QoS and QoE (either as input or output, depending on direction).
+  • Table: it must be a table header/label that is paired/conditioned with a QoE header/label.
+  • Figure: it must be one of the plotted variables (axis/legend) that is paired with a QoE variable.
+- IMPORTANT: QoS is defined as system/network/application delivery metrics (throughput, RTT/latency, loss, jitter, startup delay, rebuffering, bitrate, buffer level, bitrate switches, etc.).
+- Use canonical snake_case naming; do not invent metrics not present in the linkage evidence.
+- If the paper uses an alias/normalized/transformed form (e.g., bw, normalized bw, log(bw)), still set qos_parameter to the canonical snake_case metric name (e.g., bandwidth), and capture the exact paper form in qos_parameter_definition.
+- QoS vs QoE is determined by the metric meaning (delivery vs user/quality), NOT by whether it appears on the left-hand side of an equation.
+- If you cannot identify a QoS metric that is explicitly linked to a QoE metric in the evidence, SKIP the record.
+
+### 3) qos_parameter_definition (BASED ON RELATIONSHIP + EXCERPT; NO FABRICATION)
+- For each metric in qos_parameter, output exactly one entry in qos_parameter_definition with "metric" equal to the metric name and "definition" equal to the definition string:
+  (1) "<parameter> is <paper-defined semantic meaning>, denoted by <paper symbol>. It is measured in <paper-stated unit, category, OR inferred type of value> and is a <paper-supported variable type> variable."
+  (2) Measurement slot rule: If the excerpt does not state a unit/scale, infer ONLY the minimal type of value implied by the variable name/symbol/equation/table context (e.g., time duration, count, ratio/percentage, scalar score, categorical label, binary indicator). Do NOT invent units, ranges, thresholds, or encodings.
+  (3) Variable type must be exactly one of: continuous, discrete, binary/categorical.
+- The definition MUST be grounded in:
+  (1) the extracted relationship evidence (equation variables, table headers/units, or figure axis/legend labels), and
+  (2) any directly relevant surrounding text in the excerpt.
+- The definition MUST mention its role in the extracted relationship in a direction-neutral way inside <paper-defined semantic meaning> (no arrows or direction markers).
+- If the evidence shows an alias or transform (normalized/scaled/log/ratio/delta), you MUST say that explicitly in the definition (e.g., “bandwidth is used as normalized bandwidth (bw_norm) …”) and state value type (continuous/discrete/binary).
+- If the paper provides a formal definition or measurement method, paraphrase it and keep it consistent with the relationship evidence.
+- If the metric is ordinal categorical, the definition MUST include the ordered level set (lowest → highest) exactly as stated in the excerpt.
+- Do NOT invent how it is measured, where it is measured, or any thresholds/ranges unless explicitly stated in the excerpt.
+- If the excerpt does not provide enough information to define it in a paper-specific way, SKIP the record.
+
+### 4) qoe_parameter (MUST BE ONE OF THE LINKED VARIABLES AND MUST BE QoE)
+- Choose ONE OR MORE metrics that are clearly QoE metrics AND are explicitly part of the extracted QoS–QoE linkage evidence, and output them as an array (length >= 1).
+- It must appear in the same evidence used for "relationship":
+  • Equation: the QoE term must appear in the equation that links QoS and QoE (either as input or output, depending on direction).
+  • Table: it must be a header/label that is paired/conditioned with a QoS header/label.
+  • Figure: it must be one of the plotted variables (axis/legend) that is paired with a QoS variable.
+- IMPORTANT: QoE is defined as user-perceived quality/satisfaction or perceptual quality metrics used as QoE (MOS/DMOS/QoE score/user satisfaction/VMAF/SSIM/PSNR when treated as QoE/quality).
+- Use canonical snake_case naming; do not invent metrics not present in the linkage evidence.
+- If the paper uses an alias/normalized/transformed QoE (e.g., norm_mos, ΔVMAF), still set qoe_parameter to the canonical snake_case metric name, and capture the exact paper form in qoe_parameter_definition.
+- QoS vs QoE is determined by the metric meaning (delivery vs user/quality), NOT by whether it appears on the left-hand side of an equation.
+- If you cannot identify a QoE metric that is explicitly linked to a QoS metric in the evidence, SKIP the record.
+
+### 5) qoe_parameter_definition (BASED ON RELATIONSHIP + EXCERPT; NO FABRICATION)
+- For each metric in qoe_parameter, output exactly one entry in qoe_parameter_definition with "metric" equal to the metric name and "definition" equal to the definition string:
+  (1) "<parameter> is <paper-defined semantic meaning>, denoted by <paper symbol>. It is measured in <paper-stated unit, category, OR inferred type of value> and is a <paper-supported variable type> variable."
+  (2) Measurement slot rule: If the excerpt does not state a unit/scale, infer ONLY the minimal type of value implied by the variable name/symbol/equation/table context (e.g., time duration, count, ratio/percentage, scalar score, categorical label, binary indicator). Do NOT invent units, ranges, thresholds, or encodings.
+  (3) Variable type must be exactly one of: continuous, discrete, binary/categorical.
+- The definition MUST be grounded in:
+  (1) the extracted relationship evidence (equation term, table outcome column/header, or figure axis/legend/caption), and
+  (2) any directly relevant surrounding text in the excerpt.
+- State whether the QoE metric is subjective (e.g., MOS/DMOS/user study) or objective (e.g., VMAF/SSIM/PSNR) ONLY if the excerpt makes this clear.
+- The definition MUST mention its role in the extracted relationship in a direction-neutral way inside <paper-defined semantic meaning> (no arrows or direction markers).
+- If the evidence shows an alias or transform (normalized/scaled/log/ratio/delta), you MUST say that explicitly in the definition and state value type (continuous/discrete/binary).
+- If the metric is ordinal categorical, the definition MUST include the ordered level set (lowest → highest) exactly as stated in the excerpt.
+- Do NOT invent computation details, scales, or study protocols unless stated in the excerpt.
+- If the excerpt does not provide enough information to define it in a paper-specific way, SKIP the record.
+
+### 6) relationship (RAW EVIDENCE ONLY FOR equation/table; STRUCTURED SUMMARY FOR figure)
+The "relationship" field must be consistent with data_type and must capture the QoS–QoE linkage evidence.
+    A) If data_type="equation" (RAW COPY REQUIRED)
+        - Paste the equation EXACTLY as it appears in the excerpt.
+        - Acceptable formats: LaTeX, rendered math text, or the paper’s inline math representation.
+        - Do NOT rewrite, simplify, rename variables, reorder terms, or substitute symbols with canonical names inside "relationship".
+        - Paste the FULL equation EXACTLY as it appears in the excerpt, including the left-hand side and right-hand side.
+        - The pasted equation MUST include BOTH a QoS metric term and a QoE metric term (or their explicitly-defined symbols) within the same functional expression.
+        - If the excerpt does not contain the equation text (only refers to it), SKIP the record.
+        - OCR CLEANING EXCEPTION (ONLY FOR OCR-CORRUPTED EQUATIONS):
+            If the equation text is visibly OCR-corrupted (for example: "M O S", "L _ {t i}", "\tag {1}", "4. 2 3", "B W _ {t}"), you may apply minimal formatting-only cleanup to the equation string in the "relationship" field, without changing its mathematical meaning.
+
+            Allowed cleanup operations (ONLY these):
+            - Join spaced single-letter identifiers into one token: "M O S" -> "MOS", "B W" -> "BW".
+            - Remove spaces around subscripts/superscripts and inside their braces: "L _ {t i}" -> "L_{ti}", "BW _ {t + 1} = f{...}" -> "BW_{t+1} = f{...}" when it is clearly the same index.
+            - Fix LaTeX tag spacing: "\tag {n}" -> "\tag{n}".
+            - Remove spaces inside numbers: "4. 2 3" -> "4.23", "1 0 6" -> "106".
+            - Normalize whitespace only (remove repeated spaces / weird unicode spaces).
+            - Remove any spaces you consider to be in an unreasonable position.
+            - Remove any surrounding "$$ ... $$".
+
+            Not allowed:
+            - Any algebraic rewrite or semantic change: do not add/remove terms, do not change operators, do not reorder terms, do not change parentheses structure, do not change summation bounds, do not change function names, and do not replace symbols with canonical names.
+
+    B) If data_type="table" (RAW COPY REQUIRED)
+        - Paste the table EXACTLY as it appears in the excerpt.
+        - Acceptable formats: Markdown table, HTML table, or LaTeX tabular environment.
+        - Do NOT summarize, reformat, reconstruct, or partially copy the table. Copy the full table body shown in the excerpt.
+        - The pasted table MUST contain the QoS label(s) corresponding to every element in qos_parameter and the QoE label(s) corresponding to every element in qoe_parameter as headers/labels/conditions (or their unambiguous paper names/aliases).
+        - If the excerpt does not contain the table content (only refers to it), SKIP the record.
+
+    C) If data_type="figure" (STRUCTURED DESCRIPTION REQUIRED; INFERENCE ALLOWED IF VISUALLY SUPPORTED)
+      - Do NOT paste the image. Instead, write one structured line in exactly this format:
+      "x_axis: <label> (<unit or 'unit not specified'>) [range: <min> to <max>]; y_axis: <label> (<unit or 'unit not specified'>) [range: <min> to <max>]; linked_qos: <qos label>; linked_qoe: <qoe label>; plot_type: <scatter|line|bar|cdf|box|heatmap|errorbar|violin|histogram|bubble|stacked_bar|stacked_area|step|area|contour|surface|ridgeline|ecdf|qq|pairplot|other>; relationship_shape: <increasing|decreasing|nonlinear|u_shaped|plateau|step|correlation_matrix|other>>."
+      - Axis labels/units MUST come from the figure’s axis titles/legend/caption. Do not invent labels or units.
+      - Axis range rules:
+        1) Numeric axis:
+          - range_spec MUST be "min to max" using the smallest and largest visible numeric tick labels.
+          - If endpoints are not fully readable but can be reasonably inferred, prefix the entire range with "~" (e.g., "~0 to ~100").
+        2) Categorical axis:
+          - range_spec MUST list ALL visible categories exactly as shown, in order, like:
+            "categorical: <c1>, <c2>, <c3>, ..."
+          - Do NOT write only "[range: categorical]" without listing the categories.
+          - If you cannot read the categories, SKIP the record.
+      - You MAY infer relationship_shape from the plotted curve/scatter.
+      - The figure must clearly include BOTH a QoS metric and a QoE metric (from axes/legend/caption); otherwise SKIP.
+
+
+### 7) description (3–6 sentences; smooth prose; based on relationship + excerpt only)
+- Write 3–6 complete, natural-sounding sentences explaining the extracted relationship using ONLY:
+  (1) the content in "relationship", and
+  (2) directly relevant surrounding text from the excerpt.
+- Do NOT state the direction (do not write “QoS→QoE”, “QoE→QoS”, “bidirectional/paired”, arrows, or any direction markers). Keep the wording bi-directional (symmetric).
+- You MAY mention the evidence form generically (e.g., “The equation defines…”, “The figure shows…”, “The table provides…”), BUT you MUST NOT include any number/letter identifiers (no “Table B.11”, “Figure 3”, “Eq. (2)”, etc.).
+- Use the canonical metric names exactly from the qos_parameter and qoe_parameter arrays when referring to metrics in the description. If the evidence uses a shorthand token (e.g., bw, mos), you may include it in parentheses once.
+- Do NOT repeat raw numeric values (coefficients/intercepts/p-values/threshold numbers) if they already appear in the "relationship" field. Prefer describing the reported trend/sign (e.g., “positive coefficient”, “negative association”, “increasing/decreasing trend”) when that is implied by the evidence.
+- Describe increase/decrease/nonlinearity ONLY if it is explicitly stated in the excerpt or directly implied by the evidence in "relationship" (e.g., sign of coefficient, monotonic curve).
+- If the excerpt/evidence explicitly defines a transformation (e.g., normalized, log, ratio), you MAY mention it, but only when explicitly present.
+- If you normalized a metric name, add ONE short final sentence explaining the normalization in plain language.
+- Do NOT add goals, tasks, recommendations, or causal claims (no “recommend”, “configure”, “to achieve”, “predict”, “causes”, “improves”, “degrades”) unless the excerpt explicitly uses causal language.
+
+### 8) source (IDENTIFIER ONLY; REQUIRED IF RECORD OUTPUT)
+- Provide ONLY: "<equation X|table X|figure X; PAPER TITLE.>"
+- Include the exact identifier as written in the paper (X may include sublabels like “13a” if the paper uses them).
+- Examples:
+  - "figure 13a; Towards Perceptually Optimized End-to-end Adaptive Video Streaming."
+  - "table 2; Towards Perceptually Optimized End-to-end Adaptive Video Streaming."
+  - "equation 5; Towards Perceptually Optimized End-to-end Adaptive Video Streaming."
+- Do NOT include author names, venue, year, section names, page numbers, or any other text.
+
+If you SKIP, output an empty response (no JSON, no text).
